@@ -90,12 +90,36 @@ int run_inference(const OrtApi *ort, OrtSession *session, int64_t *tokens, const
   // extract results
   // print output
   int ret = 0;
+  float *last_hidden_state;
+  ORT_ABORT_ON_ERROR(ort->GetTensorMutableData(outputs[0], (void**)&last_hidden_state));
+  
+  OrtTensorTypeAndShapeInfo *shape_info;
+  size_t dim_count;
+  int64_t dims_hidden_state[3];
+  ORT_ABORT_ON_ERROR(ort->GetTensorTypeAndShape(outputs[0], &shape_info));
+  ORT_ABORT_ON_ERROR(ort->GetDimensionsCount(shape_info, &dim_count));
+  assert(dim_count == 3);
+
+  ORT_ABORT_ON_ERROR(ort->GetDimensions(shape_info, dims_hidden_state, sizeof(dims_hidden_state)/sizeof(dims_hidden_state[0])));
+  printf("shape: (%li,%li,%li)\n", dims_hidden_state[0], dims_hidden_state[1], dims_hidden_state[2]);
+
+  printf("data: ");
+  for (int batch = 0; batch < dims_hidden_state[0]; batch++) {
+    printf("\n[\n  [\n");
+    for (int token = 0; token < dims_hidden_state[1]; token++) {
+      printf("    [");
+      for (int feature = 0; feature < 3; feature++) {
+        printf("%0.4e, ", last_hidden_state[batch*dims_hidden_state[1]*dims_hidden_state[2] + token*dims_hidden_state[2] + feature]);
+      }
+      printf("...]\n");
+    }
+    printf("  ]");
+  }
+  printf("\n]\n");
+
   float *pooler_output;
   ORT_ABORT_ON_ERROR(ort->GetTensorMutableData(outputs[1], (void**)&pooler_output));
-
-  OrtTensorTypeAndShapeInfo *shape_info;
   ORT_ABORT_ON_ERROR(ort->GetTensorTypeAndShape(outputs[1], &shape_info));
-  size_t dim_count;
   ORT_ABORT_ON_ERROR(ort->GetDimensionsCount(shape_info, &dim_count));
   assert(dim_count == 2);
   
